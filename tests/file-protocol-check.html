@@ -1,0 +1,39 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>file:// check</title></head>
+<body>
+<pre id="out">running…</pre>
+<!-- Verifies the app's storage + PDF engine work when opened from disk (file://).
+     Run headless:  msedge --headless --user-data-dir=<temp> --virtual-time-budget=15000 --dump-dom file:///.../tests/file-protocol-check.html -->
+<script src="../js/vendor/pdf-lib.min.js"></script>
+<script src="../js/vendor/fontkit.umd.min.js"></script>
+<script src="../js/generated/embedded-assets.js"></script>
+<script src="../js/core/format.js"></script>
+<script src="../js/core/delivery-notes.js"></script>
+<script src="../js/core/storage.js"></script>
+<script src="../js/core/arabic-shaper.js"></script>
+<script src="../js/core/pdf-generator.js"></script>
+<script>
+(async () => {
+  const out = {};
+  const step = (s) => { out.step = s; document.getElementById('out').textContent = 'STEP ' + JSON.stringify(out); console.log('STEP', s); };
+  try {
+    out.protocol = location.protocol;
+    out.hasIDB = typeof indexedDB !== 'undefined';
+    const M = window.Masdar;
+    step('open');
+    await Promise.race([M.Storage.open(), new Promise((_, rej) => setTimeout(() => rej(new Error('open timeout')), 5000))]);
+    step('create');
+    const n = await M.Storage.createNote({ driverName: 'خالد احمد', plateNumber: '6088385', tareKg: 22780, grossKg: 77000 });
+    out.number = n.number;
+    await M.Storage.close();
+    out.reopenedCount = (await M.Storage.listNotes()).length;
+    const gen = M.PdfGenerator.createGenerator({ PDFLib: window.PDFLib, fontkit: window.fontkit, assets: window.MASDAR_ASSETS });
+    const bytes = await gen.generate(n);
+    out.pdfBytes = bytes.length;
+    out.blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })).slice(0, 10);
+    out.ok = true;
+  } catch (e) { out.error = String(e && e.stack || e); }
+  document.getElementById('out').textContent = 'RESULT ' + JSON.stringify(out);
+})();
+</script>
+</body></html>
